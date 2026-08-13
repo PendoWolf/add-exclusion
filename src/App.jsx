@@ -34,9 +34,26 @@ function App() {
       ...current,
     ])
     setText('')
+
+    if (typeof pendo !== 'undefined') {
+      pendo.track('task_created', {
+        textLength: value.length,
+        totalTaskCount: todos.length + 1,
+        activeTaskCount: remaining + 1,
+      })
+    }
   }
 
   function toggleTodo(id) {
+    const todo = todos.find((t) => t.id === id)
+    if (todo && !todo.done && typeof pendo !== 'undefined') {
+      pendo.track('task_completed', {
+        taskTextLength: todo.text.length,
+        remainingCount: remaining - 1,
+        totalTaskCount: todos.length,
+        completedCount: completedCount + 1,
+      })
+    }
     setTodos((current) =>
       current.map((todo) =>
         todo.id === id ? { ...todo, done: !todo.done } : todo,
@@ -49,6 +66,13 @@ function App() {
   }
 
   function clearCompleted() {
+    if (typeof pendo !== 'undefined') {
+      pendo.track('completed_tasks_cleared', {
+        clearedCount: completedCount,
+        remainingCount: remaining,
+        totalBeforeCount: todos.length,
+      })
+    }
     setTodos((current) => current.filter((todo) => !todo.done))
   }
 
