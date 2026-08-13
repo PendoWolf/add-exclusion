@@ -1,65 +1,95 @@
-import { useEffect, useId, useState } from 'react'
-import './App.css'
+import { useEffect, useId, useState } from "react";
+import "./App.css";
 
-const STORAGE_KEY = 'clearlist-todos'
+const STORAGE_KEY = "clearlist-todos";
 
 function loadTodos() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 function App() {
-  const [todos, setTodos] = useState(loadTodos)
-  const [text, setText] = useState('')
-  const [filter, setFilter] = useState('all')
-  const inputId = useId()
+  const [todos, setTodos] = useState(loadTodos);
+  const [text, setText] = useState("");
+  const [filter, setFilter] = useState("all");
+  const inputId = useId();
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
-  }, [todos])
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }, [todos]);
+
+  const remaining = todos.filter((todo) => !todo.done).length;
+  const completedCount = todos.length - remaining;
 
   function addTodo(event) {
-    event.preventDefault()
-    const value = text.trim()
-    if (!value) return
+    event.preventDefault();
+    const value = text.trim();
+    if (!value) return;
 
     setTodos((current) => [
       { id: crypto.randomUUID(), text: value, done: false },
       ...current,
-    ])
-    setText('')
+    ]);
+    setText("");
+
+    pendo.track("task_created", {
+      taskTextLength: value.length,
+      totalTaskCount: todos.length + 1,
+    });
   }
 
   function toggleTodo(id) {
+    const todo = todos.find((t) => t.id === id);
+    const isCompleting = todo && !todo.done;
+
     setTodos((current) =>
       current.map((todo) =>
         todo.id === id ? { ...todo, done: !todo.done } : todo,
       ),
-    )
+    );
+
+    if (isCompleting) {
+      pendo.track("task_completed", {
+        totalTaskCount: todos.length,
+        remainingCount: remaining - 1,
+        completedCount: completedCount + 1,
+      });
+    }
   }
 
   function deleteTodo(id) {
-    setTodos((current) => current.filter((todo) => todo.id !== id))
+    const todo = todos.find((t) => t.id === id);
+    setTodos((current) => current.filter((todo) => todo.id !== id));
+
+    if (todo) {
+      pendo.track("task_deleted", {
+        taskWasCompleted: todo.done,
+        totalTaskCount: todos.length - 1,
+        remainingCount: todo.done ? remaining : remaining - 1,
+      });
+    }
   }
 
   function clearCompleted() {
-    setTodos((current) => current.filter((todo) => !todo.done))
+    pendo.track("completed_tasks_cleared", {
+      clearedCount: completedCount,
+      remainingCount: remaining,
+      totalTaskCount: todos.length,
+    });
+    setTodos((current) => current.filter((todo) => !todo.done));
   }
 
   const visibleTodos = todos.filter((todo) => {
-    if (filter === 'active') return !todo.done
-    if (filter === 'done') return todo.done
-    return true
-  })
-
-  const remaining = todos.filter((todo) => !todo.done).length
-  const completedCount = todos.length - remaining
+    if (filter === "active") return !todo.done;
+    if (filter === "done") return todo.done;
+    return true;
+  });
 
   return (
     <div className="app">
@@ -93,20 +123,20 @@ function App() {
           <p className="count">
             {remaining === 0
               ? todos.length === 0
-                ? 'No tasks yet'
-                : 'All clear'
+                ? "No tasks yet"
+                : "All clear"
               : `${remaining} left`}
           </p>
           <div className="filters" role="group" aria-label="Filter tasks">
             {[
-              ['all', 'All'],
-              ['active', 'Active'],
-              ['done', 'Done'],
+              ["all", "All"],
+              ["active", "Active"],
+              ["done", "Done"],
             ].map(([value, label]) => (
               <button
                 key={value}
                 type="button"
-                className={filter === value ? 'is-active' : undefined}
+                className={filter === value ? "is-active" : undefined}
                 onClick={() => setFilter(value)}
               >
                 {label}
@@ -119,8 +149,8 @@ function App() {
           {visibleTodos.map((todo, index) => (
             <li
               key={todo.id}
-              className={todo.done ? 'item is-done' : 'item'}
-              style={{ '--i': index }}
+              className={todo.done ? "item is-done" : "item"}
+              style={{ "--i": index }}
             >
               <label>
                 <input
@@ -153,7 +183,7 @@ function App() {
         )}
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
